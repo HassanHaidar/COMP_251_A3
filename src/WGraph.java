@@ -149,7 +149,7 @@ public class WGraph{
     public int getNbNodes(){
         return this.nb_nodes;
     }
-
+    
     public String toString(){
     	String out = Integer.toString(this.source)+ " " + Integer.toString(this.destination)+"\n";
         out += Integer.toString(this.nb_nodes);
