@@ -4,6 +4,16 @@ import java.util.*;
 
 
 
+/**
+ * Done with consultance of TAs: Searra Chen
+ * @author Hassan
+ *
+ */
+
+
+
+
+
 public class FordFulkerson {
 
 	
@@ -31,7 +41,7 @@ public class FordFulkerson {
 			}
 			
 			// if depthFirst found path from source to destination, return
-			if (Stack.get(Stack.size()-1) == graph.getDestination() ){ 
+			if (Stack.get(Stack.size()-1) == graph.getDestination()  && Stack.get(0) == graph.getSource() ){ 
 				return Stack;
 			}
 		}
@@ -53,8 +63,8 @@ public class FordFulkerson {
 		Stack.add(node);
 				
 		for (Integer adjacentNode: getAdjacencyList(node, graph.getEdges())){
-			if (discovered[adjacentNode] == 0){
-				pi[adjacentNode] = node;	
+			if ((discovered[adjacentNode] == 0) && (graph.getEdge(node, adjacentNode).weight > 0)){
+				pi[adjacentNode] = node;
 				DFSVisit(adjacentNode, graph, time, discovered, finished, pi, Stack);
 			}
 		}
@@ -98,19 +108,166 @@ public class FordFulkerson {
 		
 		// ================== YOUR CODE GOES HERE ===================
 		
+		// initialize flow graph that stores flow values for edges
+		WGraph graphF = new WGraph(graph); 
+		
+		// treat weight in flow graph flow
+		// set it initially to zero
+		for (Edge edge: graphF.getEdges()){
+			edge.weight = 0;
+		}		
+		
+		// =============================== RUN NAIVE ALGORITHM =====================================
+		
+		while (true){
+			ArrayList<Integer> path = pathDFS(source,destination,graph);
+			ArrayList<Edge> edgesInPath = getEdgesInPath(path, graph);
+			
+			
+			int[] flowPerEdge = new int[edgesInPath.size()]; // initialize all flows through edges in path as 0
+			if (!path.isEmpty() && isFlowLessThanCapacity(edgesInPath, flowPerEdge)){
+				
+				int bottleneck = getBottleneck(edgesInPath);
+				
+				// update flow in flow graph
+				for (Edge edge: edgesInPath){
+					graphF.getEdge(edge.nodes[0], edge.nodes[1]).weight += bottleneck; // get the equivalent edge in graphF and update the flow	
+				}
+			}
+			else {
+				break;
+			}
+		}
+		
+		// ===========================================================================================
+		
+		
+		// ===============================FORD FULKERSON ALGORITHM==================================
+		//  =============================== create graph ===============================
+		
+//		WGraph graphR = new WGraph(); // initialize residual graph as empty
+//		
+//		ArrayList<Edge> forwardEdges = new ArrayList<Edge>();
+//		ArrayList<Edge> backwardEdges = new ArrayList<Edge>();
+//		
+//		for (Edge edge: graph.getEdges()){
+//			int flow = graphF.getEdge(edge.nodes[0], edge.nodes[1]).weight;
+//			int capacity = edge.weight;
+//			if ( flow < capacity){
+//				Edge newEdge = new Edge(edge.nodes[0], edge.nodes[1], capacity - flow);
+//				graphR.addEdge(newEdge);
+//				forwardEdges.add(newEdge);
+//			}
+//			
+//			if (flow > 0){
+//				Edge newEdge = new Edge(edge.nodes[1], edge.nodes[0],flow);
+//				graphR.addEdge(newEdge);
+//				backwardEdges.add(newEdge);
+//				
+//			}
+//		}	
+		// =======================================================================================
 		
 		
 		
+		while (true){
+			// find path in residual graph
+			
+			
+			WGraph graphR = new WGraph(); // initialize residual graph as empty
+			
+			ArrayList<Edge> forwardEdges = new ArrayList<Edge>();
+			ArrayList<Edge> backwardEdges = new ArrayList<Edge>();
+			
+			for (Edge edge: graph.getEdges()){
+				int flow = graphF.getEdge(edge.nodes[0], edge.nodes[1]).weight;
+				int capacity = edge.weight;
+				if ( flow < capacity){
+					Edge newEdge = new Edge(edge.nodes[0], edge.nodes[1], capacity - flow);
+					graphR.addEdge(newEdge);
+					forwardEdges.add(newEdge);
+				}
+				
+				if (flow > 0){
+					Edge newEdge = new Edge(edge.nodes[1], edge.nodes[0],flow);
+					graphR.addEdge(newEdge);
+					backwardEdges.add(newEdge);
+					
+				}
+			}	
+			
+			
+			ArrayList<Integer> pathR = pathDFS(graphF.getSource(), graphF.getDestination(), graphR);
+			ArrayList<Edge> edgesInPathR = getEdgesInPath(pathR, graphR);
+			// if there is no path in the loop, break
+			if (pathR.isEmpty()){
+				break;
+			}
+			else{
+				// augment path
+				int bottleneck = getBottleneck(edgesInPathR);
+				
+				for (Edge edge : edgesInPathR){
+					if (forwardEdges.contains(edge)){
+						graphF.getEdge(edge.nodes[0],edge.nodes[1]).weight += bottleneck;
+					}
+					else{
+						graphF.getEdge(edge.nodes[1],edge.nodes[0]).weight -= bottleneck;
+					}
+				}
+			}
+		}
 		
-		//===========================================================
+		// calculate max flow
+		for (Edge edge: graphF.getEdges()){
+			if (edge.nodes[0] == graphF.getSource()){
+				maxFlow += edge.weight;
+			}
+		}
 		
-		
-		ArrayList path = pathDFS(source,destination,graph);
 		
 		answer += maxFlow + "\n" + graph.toString();	
 		writeAnswer(filePath+myMcGillID+".txt",answer);
 		System.out.println(answer);
 	}
+	
+	/*
+	 * helper method that gets the edges in a path
+	 */
+	private static ArrayList<Edge> getEdgesInPath(ArrayList<Integer> path, WGraph graph){
+		ArrayList<Edge> edgesInPath = new ArrayList<Edge>();
+		for (int i = 0; i < path.size() - 1; i++){
+			edgesInPath.add(graph.getEdge(path.get(i), path.get(i+1)));
+		}
+		return edgesInPath;
+	}
+	
+	/*
+	 * helper method that checks if every flow through the path is less than the capacity
+	 */
+	private static boolean isFlowLessThanCapacity(ArrayList<Edge> edgesInPath, int[] flowPerEdge){
+		for (Edge edge: edgesInPath){
+			if (flowPerEdge[edgesInPath.indexOf(edge)] >= edge.weight){
+				return false;
+			}
+		}
+		return true;
+		
+	}
+	
+	/*
+	 * helper method that returns the bottleneck of a path
+	 */
+	
+	private static int getBottleneck(ArrayList<Edge> edgesInPath){
+		// find the bottleneck among path;
+		int bottleneck = edgesInPath.get(0).weight;
+		for (Edge edge: edgesInPath){
+			bottleneck = Math.min(bottleneck, edge.weight);
+		}
+		return bottleneck;
+	}
+	
 	
 	
 	public static void writeAnswer(String path, String line){
@@ -142,7 +299,5 @@ public class FordFulkerson {
 		 File f = new File(file);
 		 WGraph g = new WGraph(file);
 		 fordfulkerson(g.getSource(),g.getDestination(),g,f.getAbsolutePath().replace(".txt",""));
-
-
 	 }
 }
