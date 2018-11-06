@@ -5,7 +5,7 @@ import java.util.*;
 
 
 /**
- * Done with consultance of TAs: Searra Chen
+ * Done with consultation of TAs: Searra Chen
  * @author Hassan
  *
  */
@@ -29,24 +29,24 @@ public class FordFulkerson {
 		int[] pi = new int[graph.getNbNodes()];
 		
 				
-		ArrayList<Integer> nodesInGraph = getNodes(graph);
+		//ArrayList<Integer> nodesInGraph = getNodes(graph);
 		
 		int time = 0;
 		
-		for (Integer node: nodesInGraph){ 
-			
+		//for (Integer node: nodesInGraph){ 
 			// if origin node of edge is not discovered
-			if (discovered[node] == 0){	
-				DFSVisit(node, graph, time, discovered, finished, pi, Stack);
-			}
+		Integer node = source;
+		if (discovered[node] == 0){	
+			DFSVisit(node, graph, time, discovered, finished, pi, Stack,destination);
+		}
 			
-			// if depthFirst found path from source to destination, return
-			if (Stack.get(Stack.size()-1) == graph.getDestination()  && Stack.get(0) == graph.getSource() ){ 
-				return Stack;
-			}
+		// if depthFirst found path from source to destination, return
+		if (Stack.get(Stack.size()-1) == destination  && Stack.get(0) == source ){ 
+			return Stack;
 		}
 		
-		if (Stack.get(Stack.size()-1) != graph.getDestination() ){
+		
+		if ((Stack.get(Stack.size()-1) != destination) ){
 			return new ArrayList<Integer>();
 		}
 		//===================================================
@@ -57,7 +57,7 @@ public class FordFulkerson {
 	 * helper method that acts as DFS-Visit(u)
 	 * see Lecture 8 slide 27 for pseudo-code
 	 */
-	private static void DFSVisit(Integer node, WGraph graph, int time, int[] discovered,int[] finished, int[] pi, ArrayList<Integer> Stack){
+	private static void DFSVisit(Integer node, WGraph graph, int time, int[] discovered,int[] finished, int[] pi, ArrayList<Integer> Stack, Integer destination){
 		time++;
 		discovered[node] = time; // discover
 		Stack.add(node);
@@ -65,7 +65,13 @@ public class FordFulkerson {
 		for (Integer adjacentNode: getAdjacencyList(node, graph.getEdges())){
 			if ((discovered[adjacentNode] == 0) && (graph.getEdge(node, adjacentNode).weight > 0)){
 				pi[adjacentNode] = node;
-				DFSVisit(adjacentNode, graph, time, discovered, finished, pi, Stack);
+				DFSVisit(adjacentNode, graph, time, discovered, finished, pi, Stack,destination);
+				
+				//=====================
+				if (Stack.get(Stack.size() - 1) != destination){
+					Stack.remove(Stack.size() - 1);
+				}
+				//================
 			}
 		}
 		time++;
@@ -117,59 +123,8 @@ public class FordFulkerson {
 			edge.weight = 0;
 		}		
 		
-		// =============================== RUN NAIVE ALGORITHM =====================================
 		
-		while (true){
-			ArrayList<Integer> path = pathDFS(source,destination,graph);
-			ArrayList<Edge> edgesInPath = getEdgesInPath(path, graph);
-			
-			
-			int[] flowPerEdge = new int[edgesInPath.size()]; // initialize all flows through edges in path as 0
-			if (!path.isEmpty() && isFlowLessThanCapacity(edgesInPath, flowPerEdge)){
-				
-				int bottleneck = getBottleneck(edgesInPath);
-				
-				// update flow in flow graph
-				for (Edge edge: edgesInPath){
-					graphF.getEdge(edge.nodes[0], edge.nodes[1]).weight += bottleneck; // get the equivalent edge in graphF and update the flow	
-				}
-			}
-			else {
-				break;
-			}
-		}
-		
-		// ===========================================================================================
-		
-		
-		// ===============================FORD FULKERSON ALGORITHM==================================
-		//  =============================== create graph ===============================
-		
-//		WGraph graphR = new WGraph(); // initialize residual graph as empty
-//		
-//		ArrayList<Edge> forwardEdges = new ArrayList<Edge>();
-//		ArrayList<Edge> backwardEdges = new ArrayList<Edge>();
-//		
-//		for (Edge edge: graph.getEdges()){
-//			int flow = graphF.getEdge(edge.nodes[0], edge.nodes[1]).weight;
-//			int capacity = edge.weight;
-//			if ( flow < capacity){
-//				Edge newEdge = new Edge(edge.nodes[0], edge.nodes[1], capacity - flow);
-//				graphR.addEdge(newEdge);
-//				forwardEdges.add(newEdge);
-//			}
-//			
-//			if (flow > 0){
-//				Edge newEdge = new Edge(edge.nodes[1], edge.nodes[0],flow);
-//				graphR.addEdge(newEdge);
-//				backwardEdges.add(newEdge);
-//				
-//			}
-//		}	
-		// =======================================================================================
-		
-		
-		
+		int counter = 0;
 		while (true){
 			// find path in residual graph
 			
@@ -184,20 +139,23 @@ public class FordFulkerson {
 				int capacity = edge.weight;
 				if ( flow < capacity){
 					Edge newEdge = new Edge(edge.nodes[0], edge.nodes[1], capacity - flow);
-					graphR.addEdge(newEdge);
-					forwardEdges.add(newEdge);
+					if (!graphContainsEdge(graphR, newEdge)){
+						graphR.addEdge(newEdge);
+						forwardEdges.add(newEdge);
+					}
 				}
 				
 				if (flow > 0){
 					Edge newEdge = new Edge(edge.nodes[1], edge.nodes[0],flow);
-					graphR.addEdge(newEdge);
-					backwardEdges.add(newEdge);
-					
+					if (!graphContainsEdge(graphR, newEdge)){
+						graphR.addEdge(newEdge);
+						backwardEdges.add(newEdge);
+					}
 				}
 			}	
 			
 			
-			ArrayList<Integer> pathR = pathDFS(graphF.getSource(), graphF.getDestination(), graphR);
+			ArrayList<Integer> pathR = pathDFS(source, destination, graphR);
 			ArrayList<Edge> edgesInPathR = getEdgesInPath(pathR, graphR);
 			// if there is no path in the loop, break
 			if (pathR.isEmpty()){
@@ -216,17 +174,18 @@ public class FordFulkerson {
 					}
 				}
 			}
+			counter++;
 		}
 		
 		// calculate max flow
 		for (Edge edge: graphF.getEdges()){
-			if (edge.nodes[0] == graphF.getSource()){
+			if (edge.nodes[0] == source){
 				maxFlow += edge.weight;
 			}
 		}
 		
 		
-		answer += maxFlow + "\n" + graph.toString();	
+		answer += maxFlow + "\n" + graphF.toString();	
 		writeAnswer(filePath+myMcGillID+".txt",answer);
 		System.out.println(answer);
 	}
@@ -266,6 +225,18 @@ public class FordFulkerson {
 			bottleneck = Math.min(bottleneck, edge.weight);
 		}
 		return bottleneck;
+	}
+	
+	/*
+	 * helper method that checks if a graph contains an edge of the same nodes as parameters
+	 */
+	private static boolean graphContainsEdge(WGraph graph, Edge edge){
+		for (Edge e: graph.getEdges()){
+			if ((edge.nodes[0] == e.nodes[0]) && (edge.nodes[1] == e.nodes[1])){
+				return true;
+			}
+		}
+		return false;
 	}
 	
 	
